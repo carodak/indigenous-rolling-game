@@ -7,20 +7,6 @@ public class DoorMover : MonoBehaviour, IInteractable
     [SerializeField] private Animator leftDoor = null;
     [SerializeField] private Animator rightDoor = null;
     [SerializeField] private bool openTrigger = true;
-    
-    private void OnTriggerEnter(Collider other) {
-        if (other.CompareTag("Player") && openTrigger)
-        {
-            OpenDoor();
-        }
-    }
-
-    private void OnTriggerExit(Collider other) {
-        if (other.CompareTag("Player") && !openTrigger)
-        {
-            CloseDoor();
-        }
-    }
 
     public void Interact(Transform interactorTransform){
         if (openTrigger){
