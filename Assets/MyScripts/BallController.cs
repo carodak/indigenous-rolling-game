@@ -16,10 +16,12 @@ public class BallController : MonoBehaviour
         rb.AddForce (movement * speed);
     }
 
+    /*
     void Update() {
         if(Input.GetKeyDown("space")){
             rb.AddForce(Vector3.up * jumpForce);
         }
     }
+    */
 
 }

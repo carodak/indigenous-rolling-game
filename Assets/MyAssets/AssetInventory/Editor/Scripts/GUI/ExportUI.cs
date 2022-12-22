@@ -47,6 +47,7 @@ namespace AssetInventory
                 new ED("Asset/DisplayPublisher"),
                 new ED("Asset/ETag", false),
                 new ED("Asset/Exclude", false),
+                new ED("Asset/Hue", false),
                 new ED("Asset/IsHidden", false),
                 new ED("Asset/IsLatestVersion"),
                 new ED("Asset/KeyFeatures", false),

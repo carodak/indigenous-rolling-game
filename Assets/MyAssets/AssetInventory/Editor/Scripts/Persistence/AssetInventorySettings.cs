@@ -28,6 +28,9 @@ namespace AssetInventory
         public bool showPackageFilterBar;
         public bool showDetailFilters = true;
         public bool showSavedSearches = true;
+        public bool showIndexingSettings = true;
+        public bool showImportSettings;
+        public bool showBackupSettings;
 
         public bool indexAssetStore = true;
         public bool indexPackageCache = true;
@@ -47,9 +50,14 @@ namespace AssetInventory
         public int cooldownDuration = 60; // seconds
 
         public bool createBackups;
+        public bool backupByDefault;
         public bool onlyLatestPatchVersion = true;
         public int backupsPerAsset = 5;
         public string backupFolder;
+
+        public int importDestination;
+        public int importStructure;
+        public string importFolder;
 
         public int assetGrouping;
         public int assetDeprecation;

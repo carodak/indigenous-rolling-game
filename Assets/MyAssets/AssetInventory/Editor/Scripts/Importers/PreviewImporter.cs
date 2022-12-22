@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -39,7 +40,7 @@ namespace AssetInventory
                     continue;
                 }
 
-                string previewFile = Path.Combine(previewPath, af.AssetId.ToString(), "af-" + af.Id + ".png");
+                string previewFile = af.GetPreviewFile(previewPath);
                 string sourcePath = await AssetInventory.EnsureMaterializedAsset(af);
                 if (sourcePath == null)
                 {
@@ -68,7 +69,7 @@ namespace AssetInventory
 
                 PreviewGenerator.RegisterPreviewRequest(af.Id, sourcePath, previewFile, req =>
                 {
-                    StorePreviewResult(req, previewFile);
+                    StorePreviewResult(req);
                     DBAdapter.DB.Execute("update AssetFile set PreviewState=? where Id=?", req.Icon != null ? AssetFile.PreviewOptions.Custom : AssetFile.PreviewOptions.Error, af.Id);
                     if (req.Icon != null) created++;
                 }, af.Dependencies?.Count > 0);
@@ -94,10 +95,16 @@ namespace AssetInventory
             List<object> args = new List<object>();
             args.Add(AssetFile.PreviewOptions.Redo);
 
-            if (!retryErroneous)
+            if (retryErroneous)
             {
-                wheres.Add("PreviewState != ?");
-                args.Add(AssetFile.PreviewOptions.Error);
+                if (asset != null)
+                {
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState = ? where PreviewState = ? and AssetId = ?", AssetFile.PreviewOptions.None, AssetFile.PreviewOptions.Error, asset.Id);
+                }
+                else
+                {
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState = ? where PreviewState = ?", AssetFile.PreviewOptions.None, AssetFile.PreviewOptions.Error);
+                }
             }
 
             // sqlite does not support binding lists, parameters must be spelled out
@@ -111,16 +118,13 @@ namespace AssetInventory
 
             if (missingOnly)
             {
-                if (asset == null)
-                {
-                    wheres.Add("PreviewFile is null");
-                }
-                else
+                wheres.Add("PreviewState = ?");
+                args.Add(AssetFile.PreviewOptions.None);
+
+                if (asset != null)
                 {
                     wheres.Add("AssetId=?");
                     args.Add(asset.Id);
-
-                    wheres.Add("PreviewFile is null");
                 }
             }
             else
@@ -128,6 +132,8 @@ namespace AssetInventory
                 if (asset == null)
                 {
                     // base query only
+                    Debug.LogError("This is not supported yet as it would require reparsing unity packages as well.");
+                    return;
                 }
                 else
                 {
@@ -144,7 +150,7 @@ namespace AssetInventory
         {
             bool result = false;
             string sourcePath = await AssetInventory.EnsureMaterializedAsset(info);
-            string previewFile = Path.Combine(AssetInventory.GetPreviewFolder(), info.AssetId.ToString(), "af-" + info.Id + ".png");
+            string previewFile = info.GetPreviewFile(AssetInventory.GetPreviewFolder());
 
             if (AssetInventory.ScanDependencies.Contains(info.Type))
             {
@@ -155,8 +161,8 @@ namespace AssetInventory
             PreviewGenerator.RegisterPreviewRequest(info.Id, sourcePath, previewFile, req =>
             {
                 result = req.Icon != null;
-                StorePreviewResult(req, previewFile);
-            }, info.Dependencies.Count > 0);
+                StorePreviewResult(req);
+            }, info.Dependencies?.Count > 0);
             PreviewGenerator.EnsureProgress();
             await PreviewGenerator.ExportPreviews();
             PreviewGenerator.Clear();
@@ -164,7 +170,7 @@ namespace AssetInventory
             return result;
         }
 
-        public static void StorePreviewResult(PreviewRequest req, string previewFile)
+        public static void StorePreviewResult(PreviewRequest req)
         {
             if (!File.Exists(req.DestinationFile)) return;
             AssetFile paf = DBAdapter.DB.Find<AssetFile>(req.Id);
@@ -183,7 +189,7 @@ namespace AssetInventory
                 }
             }
 
-            paf.PreviewFile = Path.GetFileName(previewFile);
+            paf.PreviewState = AssetFile.PreviewOptions.Custom;
             paf.Hue = -1;
 
             DBAdapter.DB.Update(paf);

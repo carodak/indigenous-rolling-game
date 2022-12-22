@@ -11,7 +11,7 @@ public class NPCTextCreator : MonoBehaviour
         NPCTextTransform.localPosition = localPosition;
 
         NPCTextTransform.GetComponent<NPCTextCreator>().SetNPCText(text);
-        Destroy(NPCTextTransform.gameObject, 6f);
+        Destroy(NPCTextTransform.gameObject, 20f);
     }
 
     private TextMeshPro textMeshPro;

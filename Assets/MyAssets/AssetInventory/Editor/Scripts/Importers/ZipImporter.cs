@@ -72,6 +72,7 @@ namespace AssetInventory
 
         private async Task IndexPackage(Asset asset)
         {
+            await RemovePersistentCacheEntry(asset);
             string tempPath = await AssetInventory.ExtractAsset(asset);
             if (string.IsNullOrEmpty(tempPath))
             {
@@ -82,6 +83,7 @@ namespace AssetInventory
             FolderSpec importSpec = GetDefaultImportSpec();
             importSpec.location = tempPath;
             await new MediaImporter().Index(importSpec, asset, true, true);
+            RemoveWorkFolder(asset, tempPath);
         }
     }
 }

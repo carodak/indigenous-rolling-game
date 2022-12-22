@@ -58,7 +58,7 @@ namespace AssetInventory
 
             string backupFolder = AssetInventory.GetBackupFolder();
             List<Asset> assets = DBAdapter.DB.Table<Asset>()
-                .Where(a => a.ForeignId > 0 && a.AssetSource != Asset.Source.Package && a.Backup && !a.Exclude && !string.IsNullOrEmpty(a.Version) && !string.IsNullOrEmpty(a.Location))
+                .Where(a => a.ForeignId > 0 && a.AssetSource != Asset.Source.Package && a.Backup && !string.IsNullOrEmpty(a.Version) && !string.IsNullOrEmpty(a.Location))
                 .ToList();
 
             MainCount = assets.Count;

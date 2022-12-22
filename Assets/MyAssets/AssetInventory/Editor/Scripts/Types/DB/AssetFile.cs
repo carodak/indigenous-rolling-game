@@ -10,8 +10,8 @@ namespace AssetInventory
     {
         public enum PreviewOptions
         {
-            Supplied = 0,
-            None = 1,
+            None = 0,
+            Supplied = 1,
             Redo = 2,
             Custom = 3,
             Error = 4
@@ -24,7 +24,6 @@ namespace AssetInventory
         [Indexed] public string FileName { get; set; }
         public string SourcePath { get; set; }
         [Indexed] public string Type { get; set; }
-        public string PreviewFile { get; set; }
         public PreviewOptions PreviewState { get; set; }
         public float Hue { get; set; } = -1f;
         public long Size { get; set; }
@@ -43,6 +42,16 @@ namespace AssetInventory
             // check if file already exists in project, and work-around issue that Unity reports deleted assets still back
             ProjectPath = AssetDatabase.GUIDToAssetPath(Guid);
             if (!string.IsNullOrEmpty(ProjectPath) && !File.Exists(ProjectPath)) ProjectPath = null;
+        }
+
+        public bool HasPreview()
+        {
+            return PreviewState == PreviewOptions.Custom || PreviewState == PreviewOptions.Supplied;
+        }
+
+        public string GetPreviewFile(string previewFolder)
+        {
+            return System.IO.Path.Combine(previewFolder, AssetId.ToString(), $"af-{Id}.png");
         }
 
         public override string ToString()

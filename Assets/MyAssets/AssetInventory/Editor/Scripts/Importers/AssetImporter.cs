@@ -8,6 +8,25 @@ namespace AssetInventory
 {
     public abstract class AssetImporter : AssetProgress
     {
+        protected async Task RemovePersistentCacheEntry(Asset asset)
+        {
+            // remove old version first from cache if exists already
+            if (asset.KeepExtracted)
+            {
+                string path = AssetInventory.GetMaterializedAssetPath(asset);
+                if (Directory.Exists(path)) await IOUtils.DeleteFileOrDirectory(path);
+            }
+        }
+
+        protected static void RemoveWorkFolder(Asset asset, string tempPath)
+        {
+            // remove files again, no need to wait
+            if (!asset.KeepExtracted)
+            {
+                Task _ = Task.Run(() => Directory.Delete(tempPath, true));
+            }
+        }
+
         protected Asset Fetch(Asset asset)
         {
             if (asset.AssetSource == Asset.Source.Package)

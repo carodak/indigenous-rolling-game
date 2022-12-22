@@ -11,12 +11,12 @@ namespace AssetInventory
     {
         public static void ExtractGz(string fileName, string destinationFolder)
         {
-            Stream inStream = File.OpenRead(fileName);
-            GZipInputStream gzipStream = new GZipInputStream(inStream);
+            Stream rawStream = File.OpenRead(fileName);
+            GZipInputStream gzipStream = new GZipInputStream(rawStream);
 
             try
             {
-                TarArchive tarArchive = TarArchive.CreateInputTarArchive(gzipStream, Encoding.Default);
+                TarArchive tarArchive = TarArchive.CreateInputTarArchive(IsZipped(fileName) ? gzipStream : rawStream, Encoding.Default);
                 tarArchive.ExtractContents(destinationFolder);
                 tarArchive.Close();
             }
@@ -26,7 +26,17 @@ namespace AssetInventory
             }
 
             gzipStream.Close();
-            inStream.Close();
+            rawStream.Close();
+        }
+
+        private static bool IsZipped(string fileName)
+        {
+            using (FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read))
+            {
+                byte[] buffer = new byte[2];
+                fs.Read(buffer, 0, buffer.Length);
+                return buffer[0] == 0x1F && buffer[1] == 0x8B;
+            }
         }
     }
 }
