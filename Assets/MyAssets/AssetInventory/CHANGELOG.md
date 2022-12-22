@@ -1,4 +1,35 @@
-## 1.7.0 (2022-11-21)
+## 1.8.0 (2022-12-?)
+- Allow to create a new package for each media folder where indexed files are attached to instead of all being under -no attached package-
+- Media Folders have a setting now to remove orphaned files from the index that don't exist anymore in the directory!
+- Support materializing imported files from UnityPackages and archives into their original folder structure!
+- Settings for import destination and structure
+- Allow to keep original structure of individual assets during import
+- Support custom fixed target import folder
+- Special rule to materialize files without dependencies during drag and drop directly into target folder
+- Allow marking new packages for backup automatically
+- Consider ASSETSTORE_CACHE_PATH for default asset path if set
+- Improved and extended hard disk space usage overview
+- Show available updates for registry packages
+- Expose Hue field for export
+- Allow marking packages to be always extracted for faster access
+- Delete old cache entry for always extracted packages when encountering new version to index
+- Remove redundant preview information from database (size reduction + performance improvement of ~10%)
+- Maintenance function to remove orphaned preview images
+- Change "Open in Explorer" to "Open in Finder" on Mac
+- Backup excluded assets as well
+- Remove another unneeded preview field from the database
+- Consolidate more settings into the Settings panel
+- Continue indexing even if default asset cache could not be found
+- Support special case unity packages that are not zipped
+- Improve color importer to mark missing preview images correctly
+- Dramatically reduce set of files to go through in Color indexer if audio indexing is disabled
+- Handle packages correctly where seat has been revoked after initial indexing by switching them to custom packages until they reappear in the purchases
+- Fix package previews not showing in all cases
+- Fix metadata sometimes not getting updated during online refresh if package indexing is running in parallel
+- Fix warnings throw by compiler
+- Fix temporary extraction for archives not getting removed again after indexing
+
+## 1.7.0 (2022-11-15)
 - Support drag and drop from search to project browser!
 - Ability to recreate previews! (individually, per package, per database)
 - Custom UI to visualize dependencies, showing total size & grouping by file types

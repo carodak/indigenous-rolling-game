@@ -8,13 +8,17 @@ public class DoorMover : MonoBehaviour, IInteractable
     [SerializeField] private Animator rightDoor = null;
     [SerializeField] private bool openTrigger = true;
 
-    public void Interact(Transform interactorTransform){
+    public void DistInteract(Transform interactorTransform){
         if (openTrigger){
             OpenDoor();
         }
         else {
-            CloseDoor();
+            //CloseDoor();
         }
+    }
+
+    public void CloseInteract(Transform interactorTransform){
+
     }
 
     private void OpenDoor()

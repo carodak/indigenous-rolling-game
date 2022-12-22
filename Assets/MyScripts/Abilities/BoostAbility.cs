@@ -16,7 +16,7 @@ public class BoostAbility : MonoBehaviour, IAbility
     public void Use(){
         //rb.AddForce(Vector3.up * jumpForce);
         //playerRB.AddRelativeForce(Vector3.forward * 1/boostAmount);
-        playerGO.GetComponent<Rigidbody>().AddForce(boostAmount * playerGO.GetComponent<Rigidbody>().velocity, ForceMode.Impulse);
+        playerGO.GetComponent<Rigidbody>().AddForce(boostAmount * Vector3.up, ForceMode.Impulse);
         //playerGO.GetComponent<Rigidbody>().AddRelativeForce(playerGO.transform.forward * boostAmount, ForceMode.Acceleration);
         boostLeft -= 1;
     }

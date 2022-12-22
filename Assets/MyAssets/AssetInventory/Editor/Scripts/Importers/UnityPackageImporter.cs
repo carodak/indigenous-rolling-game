@@ -80,6 +80,7 @@ namespace AssetInventory
                 {
                     size = new FileInfo(package).Length;
                     if (AssetInventory.Config.excludeByDefault) asset.Exclude = true;
+                    if (AssetInventory.Config.backupByDefault) asset.Backup = true;
                 }
 
                 // update progress only if really doing work to save refresh time in UI
@@ -141,6 +142,15 @@ namespace AssetInventory
                 await Task.Yield(); // let editor breath
                 if (CancellationRequested) break;
 
+                // reread asset from DB in case of intermittent changes by online refresh 
+                Asset asset = DBAdapter.DB.Find<Asset>(assets[i].Id);
+                if (asset == null)
+                {
+                    Debug.LogWarning($"{assets[i]} disappeared while indexing.");
+                    continue;
+                }
+                assets[i] = asset;
+
                 AssetHeader header = ReadHeader(assets[i].Location);
                 ApplyHeader(header, assets[i]);
 
@@ -157,6 +167,8 @@ namespace AssetInventory
 
             int subProgressId = MetaProgress.Start("Indexing package", null, progressId);
             string previewPath = AssetInventory.GetPreviewFolder();
+
+            await RemovePersistentCacheEntry(asset);
             string tempPath = await AssetInventory.ExtractAsset(asset);
             if (string.IsNullOrEmpty(tempPath))
             {
@@ -221,20 +233,18 @@ namespace AssetInventory
                 // update preview 
                 if (AssetInventory.Config.extractPreviews && File.Exists(previewFile))
                 {
-                    string targetDir = Path.Combine(previewPath, asset.Id.ToString());
+                    string targetFile = af.GetPreviewFile(previewPath);
+                    string targetDir = Path.GetDirectoryName(targetFile);
                     if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
-                    string targetFile = Path.Combine(targetDir, "af-" + af.Id + Path.GetExtension(previewFile));
                     File.Copy(previewFile, targetFile, true);
-                    af.PreviewFile = Path.GetFileName(targetFile);
+                    af.PreviewState = AssetFile.PreviewOptions.Supplied;
                     af.Hue = -1;
                     Persist(af);
                 }
                 if (CancellationRequested) break;
                 await Cooldown.Do();
             }
-
-            // remove files again, no need to wait
-            Task _ = Task.Run(() => Directory.Delete(tempPath, true));
+            RemoveWorkFolder(asset, tempPath);
 
             CurrentSub = null;
             SubCount = 0;
@@ -244,6 +254,8 @@ namespace AssetInventory
 
         public static AssetHeader ReadHeader(string path)
         {
+            if (string.IsNullOrEmpty(path)) return null;
+
             AssetHeader result = null;
             using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {

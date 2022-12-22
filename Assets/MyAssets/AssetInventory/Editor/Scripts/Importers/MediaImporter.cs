@@ -3,13 +3,14 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEngine;
 
 namespace AssetInventory
 {
     public sealed class MediaImporter : AssetImporter
     {
         private const int BREAK_INTERVAL = 30;
- 
+
         public async Task Index(FolderSpec spec, Asset attachedAsset = null, bool storeRelativePath = false, bool actAsSubImporter = false)
         {
             if (!actAsSubImporter) ResetState(false);
@@ -40,8 +41,31 @@ namespace AssetInventory
                     if (!string.IsNullOrWhiteSpace(spec.pattern)) searchPatterns.AddRange(spec.pattern.Split(';'));
                     break;
             }
-            types.ForEach(t => searchPatterns.AddRange(AssetInventory.TypeGroups[t].Select(ext => $"*.{ext}")));
 
+            // clean up existing
+            if (spec.removeOrphans)
+            {
+                List<string> fileTypes = new List<string>();
+                types.ForEach(t => fileTypes.AddRange(AssetInventory.TypeGroups[t]));
+                List<AssetFile> existing = DBAdapter.DB.Table<AssetFile>()
+                    .Where(af => af.SourcePath.StartsWith(spec.location)).ToList()
+                    .Where(af => fileTypes.Contains(af.Type)).ToList();
+
+                string previewFolder = AssetInventory.GetPreviewFolder();
+                foreach (AssetFile file in existing)
+                {
+                    if (!File.Exists(file.SourcePath))
+                    {
+                        Debug.Log($"Removing orphaned entry from index: {file.SourcePath}");
+                        DBAdapter.DB.Delete<AssetFile>(file.Id);
+
+                        if (File.Exists(file.GetPreviewFile(previewFolder))) File.Delete(file.GetPreviewFile(previewFolder));
+                    }
+                }
+            }
+
+            // scan for new files
+            types.ForEach(t => searchPatterns.AddRange(AssetInventory.TypeGroups[t].Select(ext => $"*.{ext}")));
             string[] files = IOUtils.GetFiles(spec.location, searchPatterns, SearchOption.AllDirectories).ToArray();
             SubCount = files.Length;
             if (!actAsSubImporter) MainProgress = 1; // small hack to trigger UI update in the end
@@ -51,11 +75,27 @@ namespace AssetInventory
 
             if (attachedAsset == null)
             {
-                attachedAsset = DBAdapter.DB.Find<Asset>(a => a.SafeName == Asset.NONE);
-                if (attachedAsset == null)
+                if (spec.attachToPackage)
                 {
-                    attachedAsset = Asset.GetNoAsset();
-                    Persist(attachedAsset);
+                    attachedAsset = DBAdapter.DB.Find<Asset>(a => a.SafeName == spec.location);
+                    if (attachedAsset == null)
+                    {
+                        attachedAsset = new Asset();
+                        attachedAsset.SafeName = spec.location;
+                        attachedAsset.DisplayName = Path.GetFileNameWithoutExtension(spec.location);
+                        attachedAsset.AssetSource = Asset.Source.Directory;
+                        Persist(attachedAsset);
+                    }
+                }
+                else
+                {
+                    // use generic catch-all package
+                    attachedAsset = DBAdapter.DB.Find<Asset>(a => a.SafeName == Asset.NONE);
+                    if (attachedAsset == null)
+                    {
+                        attachedAsset = Asset.GetNoAsset();
+                        Persist(attachedAsset);
+                    }
                 }
             }
             string previewPath = AssetInventory.GetPreviewFolder();
@@ -99,9 +139,8 @@ namespace AssetInventory
                 if (spec.createPreviews && PreviewGenerator.IsPreviewable(af.FileName, false))
                 {
                     // let Unity generate a preview for whitelisted types (CS and ASMDEF will trigger recompile and fail the indexer) 
-                    string previewFile = Path.Combine(previewPath, af.AssetId.ToString(), "af-" + af.Id + ".png");
-
-                    PreviewGenerator.RegisterPreviewRequest(af.Id, af.SourcePath, previewFile, req => { PreviewImporter.StorePreviewResult(req, previewFile); });
+                    string previewFile = af.GetPreviewFile(previewPath);
+                    PreviewGenerator.RegisterPreviewRequest(af.Id, af.SourcePath, previewFile, PreviewImporter.StorePreviewResult);
 
                     // from time to time store the previews in case something goes wrong
                     PreviewGenerator.EnsureProgress();

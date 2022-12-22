@@ -44,7 +44,6 @@ namespace AssetInventory
         public string DisplayPublisher { get; set; }
         public string SafeCategory { get; set; }
         public string DisplayCategory { get; set; }
-        public string PreviewImage { get; set; }
         public Asset.State CurrentState { get; set; }
         public Asset.SubState CurrentSubState { get; set; }
         public string Slug { get; set; }
@@ -71,6 +70,7 @@ namespace AssetInventory
         public bool IsHidden { get; set; }
         public bool Exclude { get; set; }
         public bool Backup { get; set; }
+        public bool KeepExtracted { get; set; }
         public string ETag { get; set; }
         public DateTime LastOnlineRefresh { get; set; }
         public int FileCount { get; set; }
@@ -279,6 +279,14 @@ namespace AssetInventory
         {
             _downloaded = null;
             WasOutdated = false;
+        }
+
+        public string GetPackagePreviewFile(string previewFolder, bool validate = true)
+        {
+            string file = System.IO.Path.Combine(previewFolder, AssetId.ToString(), $"a-{AssetId}.png");
+            if (validate && !File.Exists(file)) file = null;
+
+            return file;
         }
 
         public override string ToString()

@@ -53,10 +53,26 @@ namespace AssetInventory
             {
                 DBAdapter.DB.Execute("update AssetFile set Hue=-1");
             }
-
-            if (oldVersion < 6 && !UpgradeRequired)
+            if (oldVersion < 7)
             {
-                AppProperty newVersion = new AppProperty("Version", "6");
+                if (DBAdapter.ColumnExists("AssetFile", "PreviewFile"))
+                {
+                    DBAdapter.DB.Execute("alter table AssetFile drop column PreviewFile");
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState=99 where PreviewState=0");
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState=0 where PreviewState=1");
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState=1 where PreviewState=99");
+                }
+            }
+            if (oldVersion < 8)
+            {
+                if (DBAdapter.ColumnExists("AssetFile", "PreviewImage"))
+                {
+                    DBAdapter.DB.Execute("alter table AssetFile drop column PreviewImage");
+                }
+            }
+            if (oldVersion < 8 && !UpgradeRequired)
+            {
+                AppProperty newVersion = new AppProperty("Version", "8");
                 DBAdapter.DB.InsertOrReplace(newVersion);
             }
         }
@@ -66,7 +82,7 @@ namespace AssetInventory
             UpgradePreviewImageStructure();
 
             DBAdapter.DB.Delete<AppProperty>("UpgradeRequired");
-            AppProperty newVersion = new AppProperty("Version", "6");
+            AppProperty newVersion = new AppProperty("Version", "8");
             DBAdapter.DB.InsertOrReplace(newVersion);
 
             UpgradeRequired = false;

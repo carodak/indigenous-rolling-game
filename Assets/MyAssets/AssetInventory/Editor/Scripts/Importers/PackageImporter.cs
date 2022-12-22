@@ -67,6 +67,7 @@ namespace AssetInventory
                 else
                 {
                     if (AssetInventory.Config.excludeByDefault) asset.Exclude = true;
+                    if (AssetInventory.Config.backupByDefault) asset.Backup = true;
                 }
 
                 asset.Location = Path.GetDirectoryName(package);
@@ -131,6 +132,7 @@ namespace AssetInventory
                         else
                         {
                             if (AssetInventory.Config.excludeByDefault) asset.Exclude = true;
+                            if (AssetInventory.Config.backupByDefault) asset.Backup = true;
                         }
 
                         // update progress only if really doing work to save refresh time in UI

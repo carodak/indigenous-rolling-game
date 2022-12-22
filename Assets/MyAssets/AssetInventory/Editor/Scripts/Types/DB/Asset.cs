@@ -77,6 +77,7 @@ namespace AssetInventory
         public bool IsHidden { get; set; }
         public bool Exclude { get; set; }
         public bool Backup { get; set; }
+        public bool KeepExtracted { get; set; }
         public string ETag { get; set; }
         public DateTime LastOnlineRefresh { get; set; }
         public State CurrentState { get; set; }

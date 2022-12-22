@@ -86,6 +86,8 @@ namespace AssetInventory
         private string[] _packageListingOptions;
         private string[] _deprecationOptions;
         private string[] _maintenanceOptions;
+        private string[] _importDestinationOptions;
+        private string[] _importStructureOptions;
         private string[] _expertSearchFields;
 
         private int _gridSelection;
@@ -115,6 +117,7 @@ namespace AssetInventory
         private string _newTag;
         private int _lastMainProgress;
         private bool _usageCalculationInProgress;
+        private string _importFolder;
 
         private Vector2 _searchScrollPos;
         private Vector2 _folderScrollPos;
@@ -141,9 +144,12 @@ namespace AssetInventory
         private int _selectedFolderIndex = -1;
         private AssetInfo _selectedEntry;
         private bool _showMaintenance;
+        private bool _showDiskSpace;
         private bool _packageAvailable;
         private long _dbSize;
+        private long _backupSize;
         private long _cacheSize;
+        private long _persistedCacheSize;
         private long _previewSize;
         private int _resultCount;
         private int _packageCount;
@@ -259,8 +265,9 @@ namespace AssetInventory
         private bool _initDone;
         private bool _updateAvailable;
         private AssetDetails _onlineInfo;
-        private bool _calculatingPreviewSize;
-        private bool _calculatingCacheSize;
+        private bool _calculatingFolderSizes;
+        private bool _cleanupInProgress;
+        private DateTime _lastFolderSizeCalculation;
         private DateTime _lastTileSizeChange;
         private bool _mouseOverSearchResultRect;
         private bool _mouseOverAssetTreeRect;
@@ -299,6 +306,7 @@ namespace AssetInventory
             AssetInventory.OnIndexingDone += OnTagsChanged;
             AssetInventory.OnTagsChanged += OnTagsChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            AssetStore.OnPackageListUpdated += OnPackageListUpdated;
         }
 
         private void OnDisable()
@@ -306,7 +314,28 @@ namespace AssetInventory
             AssetInventory.OnIndexingDone -= OnTagsChanged;
             AssetInventory.OnTagsChanged -= OnTagsChanged;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            AssetStore.OnPackageListUpdated -= OnPackageListUpdated;
+
             EditorAudioUtility.StopAllPreviewClips();
+        }
+
+        private void OnPackageListUpdated()
+        {
+            if (_assets == null) return;
+
+            List<PackageInfo> packages = AssetStore.GetPackages();
+            foreach (PackageInfo package in packages)
+            {
+                AssetInfo info = _assets.FirstOrDefault(a => a.AssetSource == Asset.Source.Package && a.SafeName == package.name);
+                if (info == null) continue;
+
+                if (package.versions.latest != info.LatestVersion && !package.versions.latest.ToLowerInvariant().Contains("pre"))
+                {
+                    AssetInventory.SetPackageVersion(info, package);
+
+                    Debug.Log($"Found new available version for '{info.GetDisplayName()}': {package.version}");
+                }
+            }
         }
 
         private void OnTagsChanged()
@@ -366,7 +395,7 @@ namespace AssetInventory
 
             _requireLookupUpdate = false;
             _resultSizes = new[] {"-all-", string.Empty, "10", "25", "50", "100", "250", "500", "1000"};
-            _sortFields = new[] {"Asset", "File Name", "Size", "Type", "Length", "Width", "Height", "Color", "Category", "Last Updated", "Rating", "#Ratings", string.Empty, "-unsorted-"};
+            _sortFields = new[] {"Asset Path", "File Name", "Size", "Type", "Length", "Width", "Height", "Color", "Category", "Last Updated", "Rating", "#Ratings", string.Empty, "-unsorted-"};
             _groupByOptions = new[] {"-none-", string.Empty, "Category", "Publisher", "Tag", "State"};
             _colorOptions = new[] {"-all-", "matching"};
             _tileTitle = new[] {"-Intelligent-", string.Empty, "Asset Path", "File Name", "File Name without Extension", string.Empty, "None"};
@@ -374,11 +403,13 @@ namespace AssetInventory
             _packageListingOptions = new[] {"-all-", "Exclude Registry Packages", "Only Registry Packages", "Only Custom Packages", "Only Media Folders", "Only Archives"};
             _deprecationOptions = new[] {"-all-", "Exclude Deprecated", "Show Only Deprecated"};
             _maintenanceOptions = new[] {"-all-", "Update Available", "Outdated in Unity Cache", "Disabled by Unity", "Custom Asset Store Link", "Not Indexed", "Custom Registry", "Installed", "Downloading", "Not Downloaded", "Duplicate", "Marked for Backup", "Not Marked for Backup"};
+            _importDestinationOptions = new[] {"Into Folder Selected in Project View", "Into Assets Root", "Into Specific Folder"};
+            _importStructureOptions = new[] {"All Files flat in Target Folder", "Keep Original Folder Structure"};
             _expertSearchFields = new[]
             {
                 "-Add Field-", string.Empty,
-                "Asset/AssetRating", "Asset/AssetSource", "Asset/CompatibilityInfo", "Asset/CurrentState", "Asset/CurrentSubState", "Asset/Description", "Asset/DisplayCategory", "Asset/DisplayName", "Asset/DisplayPublisher", "Asset/ETag", "Asset/Exclude", "Asset/ForeignId", "Asset/Id", "Asset/IsHidden", "Asset/IsLatestVersion", "Asset/KeyFeatures", "Asset/Keywords", "Asset/LastOnlineRefresh", "Asset/LastRelease", "Asset/LatestVersion", "Asset/License", "Asset/LicenseLocation", "Asset/Location", "Asset/MainImage", "Asset/MainImageIcon", "Asset/MainImageSmall", "Asset/OriginalLocation", "Asset/OriginalLocationKey", "Asset/PackageSize", "Asset/PackageSource", "Asset/PreferredVersion", "Asset/PreviewImage", "Asset/RatingCount", "Asset/Registry", "Asset/ReleaseNotes", "Asset/Repository", "Asset/Revision", "Asset/SafeCategory", "Asset/SafeName", "Asset/SafePublisher", "Asset/Slug", "Asset/SupportedUnityVersions", "Asset/Version",
-                "AssetFile/AssetId", "AssetFile/Hue", "AssetFile/FileName", "AssetFile/Guid", "AssetFile/Height", "AssetFile/Id", "AssetFile/Length", "AssetFile/Path", "AssetFile/PreviewFile", "AssetFile/PreviewState", "AssetFile/Size", "AssetFile/SourcePath", "AssetFile/Type",
+                "Asset/AssetRating", "Asset/AssetSource", "Asset/CompatibilityInfo", "Asset/CurrentState", "Asset/CurrentSubState", "Asset/Description", "Asset/DisplayCategory", "Asset/DisplayName", "Asset/DisplayPublisher", "Asset/ETag", "Asset/Exclude", "Asset/ForeignId", "Asset/Hue", "Asset/Id", "Asset/IsHidden", "Asset/IsLatestVersion", "Asset/KeyFeatures", "Asset/Keywords", "Asset/LastOnlineRefresh", "Asset/LastRelease", "Asset/LatestVersion", "Asset/License", "Asset/LicenseLocation", "Asset/Location", "Asset/MainImage", "Asset/MainImageIcon", "Asset/MainImageSmall", "Asset/OriginalLocation", "Asset/OriginalLocationKey", "Asset/PackageSize", "Asset/PackageSource", "Asset/PreferredVersion", "Asset/PreviewImage", "Asset/RatingCount", "Asset/Registry", "Asset/ReleaseNotes", "Asset/Repository", "Asset/Revision", "Asset/SafeCategory", "Asset/SafeName", "Asset/SafePublisher", "Asset/Slug", "Asset/SupportedUnityVersions", "Asset/Version",
+                "AssetFile/AssetId", "AssetFile/Hue", "AssetFile/FileName", "AssetFile/Guid", "AssetFile/Height", "AssetFile/Id", "AssetFile/Length", "AssetFile/Path", "AssetFile/PreviewState", "AssetFile/Size", "AssetFile/SourcePath", "AssetFile/Type",
                 "Tag/Color", "Tag/FromAssetStore", "Tag/Id", "Tag/Name",
                 "TagAssignment/Id", "TagAssignment/TagId", "TagAssignment/TagTarget", "TagAssignment/TagTargetId"
             };
@@ -420,6 +451,22 @@ namespace AssetInventory
             {
                 UpgradeUtil.DrawUpgradeRequired();
                 return;
+            }
+
+            // determine import targets
+            switch (AssetInventory.Config.importDestination)
+            {
+                case 0:
+                    _importFolder = _pvSelectedFolder;
+                    break;
+
+                case 1:
+                    _importFolder = "Assets";
+                    break;
+
+                case 2:
+                    _importFolder = AssetInventory.Config.importFolder;
+                    break;
             }
 
             if (Event.current.type == EventType.Repaint) _mouseOverSearchResultRect = false;
@@ -499,7 +546,7 @@ namespace AssetInventory
                 {
                     if (_mouseOverSearchResultRect && AssetInventory.Config.doubleClickImport && _selectedEntry != null)
                     {
-                        PerformCopyTo(_selectedEntry, _pvSelectedFolder);
+                        PerformCopyTo(_selectedEntry, _importFolder);
                     }
                 }
             }
@@ -831,10 +878,16 @@ namespace AssetInventory
                         {
                             _selectedEntry.CheckIfInProject();
                             _selectedEntry.IsMaterialized = AssetInventory.IsMaterialized(_selectedEntry.ToAsset(), _selectedEntry);
-                            EditorCoroutineUtility.StartCoroutine(AssetUtils.LoadTexture(_selectedEntry), this);
+                            EditorCoroutineUtility.StartCoroutine(AssetUtils.LoadPackageTexture(_selectedEntry), this);
 
                             // if entry is already materialized calculate dependencies immediately
-                            if (!_previewInProgress && _selectedEntry.DependencyState == AssetInfo.DependencyStateOptions.Unknown && _selectedEntry.IsMaterialized) CalculateDependencies(_selectedEntry);
+                            if (!_previewInProgress && _selectedEntry.DependencyState == AssetInfo.DependencyStateOptions.Unknown && _selectedEntry.IsMaterialized)
+                            {
+#pragma warning disable CS4014
+                                // must run in same thread
+                                CalculateDependencies(_selectedEntry);
+#pragma warning restore CS4014
+                            }
 
                             _packageAvailable = _selectedEntry.AssetSource == Asset.Source.Directory || _selectedEntry.AssetSource == Asset.Source.Package || File.Exists(_selectedEntry.Location);
                             if (AssetInventory.Config.pingSelected && _selectedEntry.InProject) PingAsset(_selectedEntry);
@@ -915,7 +968,13 @@ namespace AssetInventory
                                         GUILayout.BeginHorizontal();
                                         EditorGUILayout.LabelField("Dependencies", EditorStyles.boldLabel, GUILayout.Width(85));
                                         EditorGUI.BeginDisabledGroup(_previewInProgress);
-                                        if (GUILayout.Button("Calculate", GUILayout.ExpandWidth(false))) CalculateDependencies(_selectedEntry);
+                                        if (GUILayout.Button("Calculate", GUILayout.ExpandWidth(false)))
+                                        {
+#pragma warning disable CS4014
+                                            // must run in same thread
+                                            CalculateDependencies(_selectedEntry);
+#pragma warning restore CS4014
+                                        }
                                         EditorGUI.EndDisabledGroup();
                                         GUILayout.EndHorizontal();
                                         break;
@@ -942,7 +1001,7 @@ namespace AssetInventory
                                 }
                             }
 
-                            if (!_selectedEntry.InProject && string.IsNullOrEmpty(_pvSelectedFolder))
+                            if (!_selectedEntry.InProject && string.IsNullOrEmpty(_importFolder))
                             {
                                 EditorGUILayout.Space();
                                 EditorGUILayout.LabelField("Select a folder in Project View for import options", EditorStyles.centeredGreyMiniLabel);
@@ -951,18 +1010,18 @@ namespace AssetInventory
                                 EditorGUI.EndDisabledGroup();
                             }
                             EditorGUI.BeginDisabledGroup(_previewInProgress);
-                            if ((!_selectedEntry.InProject || Event.current.control) && !string.IsNullOrEmpty(_pvSelectedFolder))
+                            if ((!_selectedEntry.InProject || Event.current.control) && !string.IsNullOrEmpty(_importFolder))
                             {
                                 string command = _selectedEntry.InProject ? "Reimport" : "Import";
-                                GUILabelWithText($"{command} To", _pvSelectedFolder);
+                                GUILabelWithText($"{command} To", _importFolder);
                                 EditorGUILayout.Space();
-                                if (GUILayout.Button($"{command} File" + (_selectedEntry.DependencySize > 0 ? " Only" : ""))) CopyTo(_selectedEntry, _pvSelectedFolder);
+                                if (GUILayout.Button($"{command} File" + (_selectedEntry.DependencySize > 0 ? " Only" : ""))) CopyTo(_selectedEntry, _importFolder);
                                 if (_selectedEntry.DependencySize > 0 && AssetInventory.ScanDependencies.Contains(_selectedEntry.Type))
                                 {
-                                    if (GUILayout.Button($"{command} With Dependencies")) CopyTo(_selectedEntry, _pvSelectedFolder, true);
+                                    if (GUILayout.Button($"{command} With Dependencies")) CopyTo(_selectedEntry, _importFolder, true);
                                     if (_selectedEntry.ScriptDependencies.Count > 0)
                                     {
-                                        if (GUILayout.Button($"{command} With Dependencies + Scripts")) CopyTo(_selectedEntry, _pvSelectedFolder, true, true);
+                                        if (GUILayout.Button($"{command} With Dependencies + Scripts")) CopyTo(_selectedEntry, _importFolder, true, true);
                                     }
 
                                     EditorGUILayout.Space();
@@ -992,7 +1051,7 @@ namespace AssetInventory
                             }
 
                             if (GUILayout.Button("Open")) Open(_selectedEntry);
-                            if (GUILayout.Button("Open in Explorer")) OpenExplorer(_selectedEntry);
+                            if (GUILayout.Button(Application.platform == RuntimePlatform.OSXEditor ? "Open in Finder" : "Open in Explorer")) OpenExplorer(_selectedEntry);
                             EditorGUI.BeginDisabledGroup(_previewInProgress);
                             if (Event.current.control && GUILayout.Button("Recreate Preview")) RecreatePreview(_selectedEntry);
                             EditorGUI.EndDisabledGroup();
@@ -1440,17 +1499,30 @@ namespace AssetInventory
                     GUILayout.EndHorizontal();
                 }
 
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField(UIStyles.Content("Exclude", "Will not index the asset and not show existing index results in the search."), EditorStyles.boldLabel, GUILayout.Width(85));
-                EditorGUI.BeginChangeCheck();
-                info.Exclude = EditorGUILayout.Toggle(info.Exclude);
-                if (EditorGUI.EndChangeCheck())
+                if (Event.current.control)
                 {
-                    AssetInventory.SetAssetExclusion(info, info.Exclude);
-                    _requireLookupUpdate = true;
-                    _requireSearchUpdate = true;
+                    if (info.AssetSource == Asset.Source.CustomPackage || info.AssetSource == Asset.Source.Archive || info.AssetSource == Asset.Source.AssetStorePackage)
+                    {
+                        GUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField(UIStyles.Content("Extract", "Will keep the package extracted in the cache to minimize access delays at the cost of more hard disk space."), EditorStyles.boldLabel, GUILayout.Width(85));
+                        EditorGUI.BeginChangeCheck();
+                        info.KeepExtracted = EditorGUILayout.Toggle(info.KeepExtracted);
+                        if (EditorGUI.EndChangeCheck()) AssetInventory.SetAssetExtraction(info, info.KeepExtracted);
+                        GUILayout.EndHorizontal();
+                    }
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Exclude", "Will not index the asset and not show existing index results in the search."), EditorStyles.boldLabel, GUILayout.Width(85));
+                    EditorGUI.BeginChangeCheck();
+                    info.Exclude = EditorGUILayout.Toggle(info.Exclude);
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        AssetInventory.SetAssetExclusion(info, info.Exclude);
+                        _requireLookupUpdate = true;
+                        _requireSearchUpdate = true;
+                    }
+                    GUILayout.EndHorizontal();
                 }
-                GUILayout.EndHorizontal();
             }
             if (info.IsDeprecated) EditorGUILayout.HelpBox("This asset is deprecated.", MessageType.Warning);
             if (info.IsAbandoned) EditorGUILayout.HelpBox("This asset is no longer available.", MessageType.Warning);
@@ -1646,87 +1718,127 @@ namespace AssetInventory
         {
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
+            _folderScrollPos = GUILayout.BeginScrollView(_folderScrollPos, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, GUILayout.ExpandWidth(true));
 
             // folders
-            EditorGUILayout.LabelField("Indexing", EditorStyles.largeLabel);
-            EditorGUILayout.LabelField("Unity Asset Store downloads will be indexed automatically. Specify custom locations below to scan for unitypackages downloaded from somewhere else than the Asset Store or for any arbitrary media files like your model or sound library you want to access.", EditorStyles.wordWrappedLabel);
-            EditorGUILayout.Space();
             EditorGUI.BeginChangeCheck();
-            AssetInventory.Config.indexAssetStore = GUILayout.Toggle(AssetInventory.Config.indexAssetStore, "Index Asset Store Downloads");
-            AssetInventory.Config.indexPackageCache = GUILayout.Toggle(AssetInventory.Config.indexPackageCache, "Index Package Cache");
-
-            GUILayout.BeginHorizontal();
-            AssetInventory.Config.useCooldown = EditorGUILayout.Toggle(AssetInventory.Config.useCooldown, GUILayout.Width(11));
-            if (!AssetInventory.Config.useCooldown)
-            {
-                GUILayout.Label("Pause indexing regularly", GUILayout.ExpandWidth(false));
-            }
-            else
-            {
-                GUILayout.Label("Pause indexing every", GUILayout.ExpandWidth(false));
-                AssetInventory.Config.cooldownInterval = EditorGUILayout.DelayedIntField(AssetInventory.Config.cooldownInterval, GUILayout.Width(30));
-                GUILayout.Label("minutes for", GUILayout.ExpandWidth(false));
-                AssetInventory.Config.cooldownDuration = EditorGUILayout.DelayedIntField(AssetInventory.Config.cooldownDuration, GUILayout.Width(30));
-                GUILayout.Label("seconds for hard disk cooldown");
-            }
-            GUILayout.EndHorizontal();
-
+            AssetInventory.Config.showIndexingSettings = EditorGUILayout.Foldout(AssetInventory.Config.showIndexingSettings, "Index Locations");
             if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
-#if UNITY_2022_1_OR_NEWER
-            EditorGUILayout.LabelField("Only the default asset cache location will be scanned. If you moved it to a different location add that location as an additional folder below.", EditorStyles.miniLabel);
-#endif
-            EditorGUILayout.Space();
-            _folderScrollPos = GUILayout.BeginScrollView(_folderScrollPos, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, GUILayout.ExpandWidth(true));
-            if (SerializedFoldersObject != null)
+
+            if (AssetInventory.Config.showIndexingSettings)
             {
-                SerializedFoldersObject.Update();
-                FolderListControl.DoLayoutList();
-                SerializedFoldersObject.ApplyModifiedProperties();
+                EditorGUILayout.LabelField("Unity Asset Store downloads will be indexed automatically. Specify custom locations below to scan for unitypackages downloaded from somewhere else than the Asset Store or for any arbitrary media files like your model or sound library you want to access.", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.Space();
+
+                EditorGUI.BeginChangeCheck();
+                AssetInventory.Config.indexAssetStore = GUILayout.Toggle(AssetInventory.Config.indexAssetStore, "Asset Store Downloads");
+                AssetInventory.Config.indexPackageCache = GUILayout.Toggle(AssetInventory.Config.indexPackageCache, "Package Cache");
+                if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
+#if UNITY_2022_1_OR_NEWER
+                EditorGUILayout.LabelField("Only the default asset cache location will be scanned. If you moved it to a different location add that location as an additional folder below.", EditorStyles.miniLabel);
+#endif
+                EditorGUILayout.Space();
+                if (SerializedFoldersObject != null)
+                {
+                    SerializedFoldersObject.Update();
+                    FolderListControl.DoLayoutList();
+                    SerializedFoldersObject.ApplyModifiedProperties();
+                }
+            }
+            EditorGUILayout.Space();
+
+            int labelWidth = 160;
+
+            // importing
+            EditorGUI.BeginChangeCheck();
+            AssetInventory.Config.showImportSettings = EditorGUILayout.Foldout(AssetInventory.Config.showImportSettings, "Import");
+            if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
+
+            if (AssetInventory.Config.showImportSettings)
+            {
+                EditorGUILayout.LabelField("You can always drag & drop assets form the search into a folder of your choice in the project view. What can be configured is the behavior when using the Import button or double-clicking an asset.", EditorStyles.wordWrappedLabel);
+
+                GUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(UIStyles.Content("Structure", "Structure to materialize the imported files in"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                AssetInventory.Config.importStructure = EditorGUILayout.Popup(AssetInventory.Config.importStructure, _importStructureOptions, GUILayout.Width(300));
+                GUILayout.EndHorizontal();
+
+                GUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(UIStyles.Content("Destination", "Target folder for imported files"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                AssetInventory.Config.importDestination = EditorGUILayout.Popup(AssetInventory.Config.importDestination, _importDestinationOptions, GUILayout.Width(300));
+                GUILayout.EndHorizontal();
+
+                if (AssetInventory.Config.importDestination == 2)
+                {
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Target Folder", EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                    EditorGUI.BeginDisabledGroup(true);
+                    EditorGUILayout.TextField(string.IsNullOrWhiteSpace(AssetInventory.Config.importFolder) ? "[Assets Root]" : AssetInventory.Config.importFolder, GUILayout.ExpandWidth(true));
+                    EditorGUI.EndDisabledGroup();
+                    if (GUILayout.Button("Select...", GUILayout.ExpandWidth(false))) SelectImportFolder();
+                    if (!string.IsNullOrWhiteSpace(AssetInventory.Config.importFolder) && GUILayout.Button("Clear", GUILayout.ExpandWidth(false)))
+                    {
+                        AssetInventory.Config.importFolder = null;
+                        AssetInventory.SaveConfig();
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                EditorGUILayout.Space();
             }
 
             // backup
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Auto-Backup", EditorStyles.largeLabel);
-            EditorGUILayout.LabelField("Asset Inventory can automatically create backups of your asset purchases. Unity does not store old versions and assets get regularly deprecated. Backups will allow you to go back to previous versions easily. Backups will be done at the end of each update cycle.", EditorStyles.wordWrappedLabel);
-            EditorGUILayout.Space();
             EditorGUI.BeginChangeCheck();
-
-            int labelWidth = 160;
-            GUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(UIStyles.Content("Create Backups", "Store downloaded assets in a separate folder"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
-            AssetInventory.Config.createBackups = EditorGUILayout.Toggle(AssetInventory.Config.createBackups);
-            GUILayout.EndHorizontal();
-
-            if (AssetInventory.Config.createBackups)
-            {
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField(UIStyles.Content("Override Patch Versions", "Will remove all but the latest patch version of an asset inside the same minor version (e.g. 5.4.3 instead of 5.4.2)"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
-                AssetInventory.Config.onlyLatestPatchVersion = EditorGUILayout.Toggle(AssetInventory.Config.onlyLatestPatchVersion);
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField(UIStyles.Content("Backups per Asset", "Number of versions to keep per asset"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
-                AssetInventory.Config.backupsPerAsset = EditorGUILayout.IntSlider(AssetInventory.Config.backupsPerAsset, 1, 10, GUILayout.Width(150));
-                GUILayout.EndHorizontal();
-
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Storage Folder", EditorStyles.boldLabel, GUILayout.Width(labelWidth));
-                EditorGUI.BeginDisabledGroup(true);
-                EditorGUILayout.TextField(string.IsNullOrWhiteSpace(AssetInventory.Config.backupFolder) ? "[Default] " + AssetInventory.GetBackupFolder(false) : AssetInventory.Config.backupFolder, GUILayout.ExpandWidth(true));
-                EditorGUI.EndDisabledGroup();
-                if (GUILayout.Button("Select...", GUILayout.ExpandWidth(false))) SelectBackupFolder();
-                if (!string.IsNullOrWhiteSpace(AssetInventory.Config.backupFolder) && GUILayout.Button("Clear", GUILayout.ExpandWidth(false)))
-                {
-                    AssetInventory.Config.backupFolder = null;
-                    AssetInventory.SaveConfig();
-                }
-                GUILayout.EndHorizontal();
-            }
-
+            AssetInventory.Config.showBackupSettings = EditorGUILayout.Foldout(AssetInventory.Config.showBackupSettings, "Auto-Backup");
             if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
+
+            if (AssetInventory.Config.showBackupSettings)
+            {
+                EditorGUILayout.LabelField("Asset Inventory can automatically create backups of your asset purchases. Unity does not store old versions and assets get regularly deprecated. Backups will allow you to go back to previous versions easily. Backups will be done at the end of each update cycle.", EditorStyles.wordWrappedLabel);
+                EditorGUILayout.Space();
+                EditorGUI.BeginChangeCheck();
+
+                GUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField(UIStyles.Content("Create Backups", "Store downloaded assets in a separate folder"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                AssetInventory.Config.createBackups = EditorGUILayout.Toggle(AssetInventory.Config.createBackups);
+                GUILayout.EndHorizontal();
+
+                if (AssetInventory.Config.createBackups)
+                {
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Active for New Packages", "Will mark newly encountered packages to be backed up automatically. Otherwise you need to select packages manually which will save a lot of disk space potentially."), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                    AssetInventory.Config.backupByDefault = EditorGUILayout.Toggle(AssetInventory.Config.backupByDefault);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Override Patch Versions", "Will remove all but the latest patch version of an asset inside the same minor version (e.g. 5.4.3 instead of 5.4.2)"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                    AssetInventory.Config.onlyLatestPatchVersion = EditorGUILayout.Toggle(AssetInventory.Config.onlyLatestPatchVersion);
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Backups per Asset", "Number of versions to keep per asset"), EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                    AssetInventory.Config.backupsPerAsset = EditorGUILayout.IntSlider(AssetInventory.Config.backupsPerAsset, 1, 10, GUILayout.Width(150));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Storage Folder", EditorStyles.boldLabel, GUILayout.Width(labelWidth));
+                    EditorGUI.BeginDisabledGroup(true);
+                    EditorGUILayout.TextField(string.IsNullOrWhiteSpace(AssetInventory.Config.backupFolder) ? "[Default] " + AssetInventory.GetBackupFolder(false) : AssetInventory.Config.backupFolder, GUILayout.ExpandWidth(true));
+                    EditorGUI.EndDisabledGroup();
+                    if (GUILayout.Button("Select...", GUILayout.ExpandWidth(false))) SelectBackupFolder();
+                    if (!string.IsNullOrWhiteSpace(AssetInventory.Config.backupFolder) && GUILayout.Button("Clear", GUILayout.ExpandWidth(false)))
+                    {
+                        AssetInventory.Config.backupFolder = null;
+                        AssetInventory.SaveConfig();
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
+            }
 
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
+            GUILayout.FlexibleSpace();
 
             GUILayout.BeginVertical();
             GUILayout.BeginVertical("Update", "window", GUILayout.Width(UIStyles.INSPECTOR_WIDTH), GUILayout.ExpandHeight(false));
@@ -1864,6 +1976,23 @@ namespace AssetInventory
             AssetInventory.Config.excludeByDefault = EditorGUILayout.Toggle(AssetInventory.Config.excludeByDefault);
             GUILayout.EndHorizontal();
 
+            GUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(UIStyles.Content("Pause indexing regularly", "Will not cause automatic indexing of newly downloaded assets. Instead this needs to be triggered manually per package."), EditorStyles.boldLabel, GUILayout.Width(width));
+            AssetInventory.Config.useCooldown = EditorGUILayout.Toggle(AssetInventory.Config.useCooldown);
+            GUILayout.EndHorizontal();
+
+            if (AssetInventory.Config.useCooldown)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(15);
+                GUILayout.Label("Pause every", GUILayout.ExpandWidth(false));
+                AssetInventory.Config.cooldownInterval = EditorGUILayout.DelayedIntField(AssetInventory.Config.cooldownInterval, GUILayout.Width(30));
+                GUILayout.Label("minutes for", GUILayout.ExpandWidth(false));
+                AssetInventory.Config.cooldownDuration = EditorGUILayout.DelayedIntField(AssetInventory.Config.cooldownDuration, GUILayout.Width(30));
+                GUILayout.Label("seconds", GUILayout.ExpandWidth(false));
+                GUILayout.EndHorizontal();
+            }
+
             if (EditorGUI.EndChangeCheck()) AssetInventory.SaveConfig();
 
             if (EditorGUI.EndChangeCheck())
@@ -1882,22 +2011,54 @@ namespace AssetInventory
             GUILabelWithText("Indexed Files", $"{_packageFileCount}", 120);
             GUILabelWithText("Database Size", EditorUtility.FormatBytes(_dbSize), 120);
 
-            /*
-            GUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(UIStyles.Content("Preview Images", "Size of folder containing asset preview images."), EditorStyles.boldLabel, GUILayout.Width(120));
-            EditorGUILayout.LabelField(EditorUtility.FormatBytes(_previewSize), GUILayout.Width(80));
-            GUILayout.EndHorizontal();
-            */
-
-            GUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(UIStyles.Content("Cache Size", "Size of folder containing temporary cache. Can be deleted at any time."), EditorStyles.boldLabel, GUILayout.Width(120));
-            EditorGUILayout.LabelField(EditorUtility.FormatBytes(_cacheSize), GUILayout.Width(80));
-            GUILayout.EndHorizontal();
-
             if (_indexedPackageCount < _packageCount - _deprecatedAssetsCount - _registryPackageCount && !AssetInventory.IndexingInProgress)
             {
                 EditorGUILayout.Space();
                 EditorGUILayout.HelpBox("To index the remaining assets, download them first. Tip: You can multi-select packages here to start a bulk download.", MessageType.Info);
+            }
+            
+            EditorGUILayout.Space();
+            GUILayout.BeginHorizontal();
+            _showDiskSpace = EditorGUILayout.Foldout(_showDiskSpace, "Used Disk Space");
+            EditorGUI.BeginDisabledGroup(_calculatingFolderSizes);
+            if (GUILayout.Button(_calculatingFolderSizes ? "Calculating..." : "Refresh", GUILayout.ExpandWidth(false)))
+            {
+                _showDiskSpace = true;
+                CalcFolderSizes();
+            }
+            EditorGUI.EndDisabledGroup();
+            GUILayout.EndHorizontal();
+
+            if (_showDiskSpace)
+            {
+                if (_lastFolderSizeCalculation != DateTime.MinValue)
+                {
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Previews", "Size of folder containing asset preview images."), EditorStyles.boldLabel, GUILayout.Width(120));
+                    EditorGUILayout.LabelField(EditorUtility.FormatBytes(_previewSize), GUILayout.Width(80));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Cache", "Size of folder containing temporary cache. Can be deleted at any time."), EditorStyles.boldLabel, GUILayout.Width(120));
+                    EditorGUILayout.LabelField(EditorUtility.FormatBytes(_cacheSize), GUILayout.Width(80));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Persistent Cache", "Size of extracted packages in cache that are marked 'extracted' and not automatically removed."), EditorStyles.boldLabel, GUILayout.Width(120));
+                    EditorGUILayout.LabelField(EditorUtility.FormatBytes(_persistedCacheSize), GUILayout.Width(80));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Backups", "Size of folder containing asset preview images."), EditorStyles.boldLabel, GUILayout.Width(120));
+                    EditorGUILayout.LabelField(EditorUtility.FormatBytes(_backupSize), GUILayout.Width(80));
+                    GUILayout.EndHorizontal();
+
+                    EditorGUILayout.LabelField("last updated " + _lastFolderSizeCalculation.ToShortTimeString(), EditorStyles.centeredGreyMiniLabel);
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("Not calculated yet....", EditorStyles.centeredGreyMiniLabel);
+                }
             }
 
             EditorGUILayout.Space();
@@ -1906,12 +2067,23 @@ namespace AssetInventory
             {
                 EditorGUI.BeginDisabledGroup(AssetInventory.CurrentMain != null || AssetInventory.IndexingInProgress);
                 if (GUILayout.Button("Recreate Missing Previews")) RecreatePreviews(null, true, false);
+
+                EditorGUI.BeginDisabledGroup(_cleanupInProgress);
+                if (Event.current.control && GUILayout.Button("Remove Orphaned Preview Images")) RemoveOrphans();
+                if (Event.current.control && GUILayout.Button("Remove Duplicate Media Indexes")) RemoveDuplicateMediaIndexes();
+
                 if (GUILayout.Button("Optimize Database"))
                 {
                     long savings = DBAdapter.Compact();
                     UpdateStatistics();
                     EditorUtility.DisplayDialog("Success", $"Database was compacted. Size reduction: {EditorUtility.FormatBytes(savings)}", "OK");
                 }
+                EditorGUI.EndDisabledGroup();
+
+                if (Event.current.control) EditorGUILayout.Space();
+                EditorGUI.BeginDisabledGroup(AssetInventory.ClearCacheInProgress);
+                if (GUILayout.Button("Clear Cache")) AssetInventory.ClearCache(UpdateStatistics);
+                EditorGUI.EndDisabledGroup();
                 if (Event.current.control && GUILayout.Button("Clear Database"))
                 {
                     if (DBAdapter.DeleteDB())
@@ -1926,11 +2098,9 @@ namespace AssetInventory
                     UpdateStatistics();
                     _assets = new List<AssetInfo>();
                 }
-
-                EditorGUI.BeginDisabledGroup(AssetInventory.ClearCacheInProgress);
-                if (GUILayout.Button("Clear Cache")) AssetInventory.ClearCache(UpdateStatistics);
-                EditorGUI.EndDisabledGroup();
                 if (Event.current.control && GUILayout.Button("Reset Configuration")) AssetInventory.ResetConfig();
+                if (Event.current.control) EditorGUILayout.Space();
+
                 if (DBAdapter.IsDBOpen())
                 {
                     if (Event.current.control && GUILayout.Button("Close Database (to allow copying)")) DBAdapter.Close();
@@ -1956,26 +2126,64 @@ namespace AssetInventory
             GUILayout.EndHorizontal();
         }
 
+        private async void RemoveOrphans()
+        {
+            _cleanupInProgress = true;
+            await AssetInventory.RemoveOrphans();
+            _cleanupInProgress = false;
+        }
+
+        private async void RemoveDuplicateMediaIndexes()
+        {
+            _cleanupInProgress = true;
+
+            await AssetInventory.RemoveDuplicateMediaIndexes();
+            _requireLookupUpdate = true;
+            _requireSearchUpdate = true;
+            _requireAssetTreeRebuild = true;
+
+            _cleanupInProgress = false;
+        }
+
         private void SelectBackupFolder()
         {
             string folder = EditorUtility.OpenFolderPanel("Select storage folder for backups", AssetInventory.Config.backupFolder, "");
-            if (!string.IsNullOrEmpty(folder)) AssetInventory.Config.backupFolder = folder;
+            if (!string.IsNullOrEmpty(folder))
+            {
+                AssetInventory.Config.backupFolder = folder;
+                AssetInventory.SaveConfig();
+            }
         }
 
-        private async void CalcCacheSize()
+        private void SelectImportFolder()
         {
-            if (_calculatingCacheSize || AssetInventory.IndexingInProgress) return;
-            _calculatingCacheSize = true;
+            string folder = EditorUtility.OpenFolderPanel("Select folder for imports", AssetInventory.Config.importFolder, "");
+            if (!string.IsNullOrEmpty(folder))
+            {
+                if (!folder.ToLowerInvariant().StartsWith(Application.dataPath.ToLowerInvariant()))
+                {
+                    EditorUtility.DisplayDialog("Error", "Folder must be inside current project", "OK");
+                    return;
+                }
+
+                // store only part relative to /Assets
+                AssetInventory.Config.importFolder = folder.Substring(Path.GetDirectoryName(Application.dataPath).Length + 1);
+                AssetInventory.SaveConfig();
+            }
+        }
+
+        private async void CalcFolderSizes()
+        {
+            if (_calculatingFolderSizes) return;
+            _calculatingFolderSizes = true;
+            _lastFolderSizeCalculation = DateTime.Now;
+
+            _backupSize = await AssetInventory.GetBackupFolderSize();
             _cacheSize = await AssetInventory.GetCacheFolderSize();
-            _calculatingCacheSize = false;
-        }
-
-        private async void CalcPreviewImageSize()
-        {
-            if (_calculatingPreviewSize || AssetInventory.IndexingInProgress) return;
-            _calculatingPreviewSize = true;
+            _persistedCacheSize = await AssetInventory.GetPersistedCacheSize();
             _previewSize = await AssetInventory.GetPreviewFolderSize();
-            _calculatingPreviewSize = false;
+
+            _calculatingFolderSizes = false;
         }
 
         private void DrawPackagesTab()
@@ -2091,22 +2299,6 @@ namespace AssetInventory
                 GUILabelWithText("Selected", _selectedTreeAssets.Count.ToString(), width);
                 GUILabelWithText("Size", EditorUtility.FormatBytes(_treeSelectionSize), width);
 
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Exclude", EditorStyles.boldLabel, GUILayout.Width(width));
-                if (GUILayout.Button("All", GUILayout.ExpandWidth(false)))
-                {
-                    _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExclusion(info, true));
-                    _requireLookupUpdate = true;
-                    _requireSearchUpdate = true;
-                }
-                if (GUILayout.Button("None", GUILayout.ExpandWidth(false)))
-                {
-                    _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExclusion(info, false));
-                    _requireLookupUpdate = true;
-                    _requireSearchUpdate = true;
-                }
-                GUILayout.EndHorizontal();
-
                 if (AssetInventory.Config.createBackups)
                 {
                     GUILayout.BeginHorizontal();
@@ -2118,6 +2310,37 @@ namespace AssetInventory
                     if (GUILayout.Button("None", GUILayout.ExpandWidth(false)))
                     {
                         _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetBackup(info, false));
+                    }
+                    GUILayout.EndHorizontal();
+                }
+
+                if (Event.current.control)
+                {
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField(UIStyles.Content("Extract", "Will keep the package extracted in the cache to minimize access delays at the cost of more hard disk space."), EditorStyles.boldLabel, GUILayout.Width(width));
+                    if (GUILayout.Button("All", GUILayout.ExpandWidth(false)))
+                    {
+                        _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExtraction(info, true));
+                    }
+                    if (GUILayout.Button("None", GUILayout.ExpandWidth(false)))
+                    {
+                        _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExtraction(info, false));
+                    }
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Exclude", EditorStyles.boldLabel, GUILayout.Width(width));
+                    if (GUILayout.Button("All", GUILayout.ExpandWidth(false)))
+                    {
+                        _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExclusion(info, true));
+                        _requireLookupUpdate = true;
+                        _requireSearchUpdate = true;
+                    }
+                    if (GUILayout.Button("None", GUILayout.ExpandWidth(false)))
+                    {
+                        _selectedTreeAssets.ForEach(info => AssetInventory.SetAssetExclusion(info, false));
+                        _requireLookupUpdate = true;
+                        _requireSearchUpdate = true;
                     }
                     GUILayout.EndHorizontal();
                 }
@@ -2558,11 +2781,11 @@ namespace AssetInventory
             _previewInProgress = false;
         }
 
-        private async void CopyTo(AssetInfo assetInfo, string targetFolder, bool withDependencies = false, bool withScripts = false, bool autoPing = true)
+        private async void CopyTo(AssetInfo assetInfo, string targetFolder, bool withDependencies = false, bool withScripts = false, bool autoPing = true, bool fromDragDrop = false)
         {
             _previewInProgress = true;
 
-            string mainFile = await AssetInventory.CopyTo(assetInfo, targetFolder, withDependencies, withScripts);
+            string mainFile = await AssetInventory.CopyTo(assetInfo, targetFolder, withDependencies, withScripts, fromDragDrop);
             if (autoPing && mainFile != null) PingAsset(new AssetInfo().WithProjectPath(mainFile));
 
             _previewInProgress = false;
@@ -2612,8 +2835,7 @@ namespace AssetInventory
             switch (_selectedMaintenance)
             {
                 case 1:
-                    filteredAssets = filteredAssets.Where(a => a.AssetSource == Asset.Source.AssetStorePackage && (a.IsUpdateAvailable(_assets) || a.WasOutdated))
-                        .OrderByDescending(a => a.LastRelease);
+                    filteredAssets = filteredAssets.Where(a => a.IsUpdateAvailable(_assets) || a.WasOutdated);
                     break;
 
                 case 2:
@@ -2669,7 +2891,7 @@ namespace AssetInventory
                 case 0: // none
                     if (_selectedMaintenance == 1)
                     {
-                        filteredAssets = filteredAssets.OrderByDescending(a => a.LastRelease);
+                        filteredAssets = filteredAssets.OrderByDescending(a => a.LastRelease).ThenBy(a => a.GetDisplayName(), StringComparer.OrdinalIgnoreCase);
                     }
                     else
                     {
@@ -2836,9 +3058,6 @@ namespace AssetInventory
             if (_tab == 3)
             {
                 _dbSize = DBAdapter.GetDBSize();
-                // FIXME: can crash
-                // CalcPreviewImageSize();
-                CalcCacheSize();
             }
 
             _requireAssetTreeRebuild = true;
@@ -3072,11 +3291,11 @@ namespace AssetInventory
             switch (AssetInventory.Config.previewVisibility)
             {
                 case 2:
-                    wheres.Add("AssetFile.PreviewFile not null");
+                    wheres.Add("(AssetFile.PreviewState = 1 or AssetFile.PreviewState = 3)");
                     break;
 
                 case 3:
-                    wheres.Add("AssetFile.PreviewFile is null");
+                    wheres.Add("(AssetFile.PreviewState != 1 and AssetFile.PreviewState != 3)");
                     break;
             }
 
@@ -3228,7 +3447,7 @@ namespace AssetInventory
             foreach (AssetInfo file in files)
             {
                 idx++;
-                if (string.IsNullOrEmpty(file.PreviewFile))
+                if (!file.HasPreview())
                 {
                     if (!AssetInventory.Config.showIconsForMissingPreviews) continue;
 
@@ -3243,12 +3462,11 @@ namespace AssetInventory
                     }
                     continue;
                 }
-                string previewFile = Path.Combine(previewFolder, file.AssetId.ToString(), file.PreviewFile);
+                string previewFile = file.GetPreviewFile(previewFolder);
                 if (!File.Exists(previewFile))
                 {
                     Debug.LogWarning($"Preview file for {file} does not exist anymore. Marking it missing for recreation.");
-                    DBAdapter.DB.Execute("update AssetFile set PreviewFile=null, PreviewState=? where Id=?", AssetFile.PreviewOptions.Redo, file.Id);
-                    file.PreviewFile = null;
+                    DBAdapter.DB.Execute("update AssetFile set PreviewState=? where Id=?", AssetFile.PreviewOptions.Redo, file.Id);
                     file.PreviewState = AssetFile.PreviewOptions.None;
                     continue;
                 }
@@ -3413,7 +3631,7 @@ namespace AssetInventory
             EditorUtility.RevealInFinder(reportFile);
         }
 
-        private async void PerformCopyTo(AssetInfo info, string path)
+        private async void PerformCopyTo(AssetInfo info, string path, bool fromDragDrop = false)
         {
             if (info.InProject) return;
             if (string.IsNullOrEmpty(path)) return;
@@ -3421,11 +3639,11 @@ namespace AssetInventory
             if (info.DependencyState == AssetInfo.DependencyStateOptions.Unknown) await CalculateDependencies(_selectedEntry);
             if (info.DependencySize > 0 && AssetInventory.ScanDependencies.Contains(info.Type))
             {
-                CopyTo(info, path, true, false, false);
+                CopyTo(info, path, true, false, false, fromDragDrop);
             }
             else
             {
-                CopyTo(info, path);
+                CopyTo(info, path, false, false, true, fromDragDrop);
             }
         }
 
@@ -3469,7 +3687,7 @@ namespace AssetInventory
 
                 AssetInfo info = (AssetInfo) DragAndDrop.GetGenericData("AssetInfo");
                 if (File.Exists(dropUponPath)) dropUponPath = Path.GetDirectoryName(dropUponPath);
-                PerformCopyTo(info, dropUponPath);
+                PerformCopyTo(info, dropUponPath, true);
                 DragAndDrop.AcceptDrag();
             }
             return DragAndDropVisualMode.Copy;
