@@ -5930,6 +5930,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3146877978625684974, guid: 0ee31f79a35d84e9ab7db4a57902e541, type: 3}
+      propertyPath: playerJump
+      value: 
+      objectReference: {fileID: 8300000, guid: 14461d9802cc6754d9ee507d6b4f9bf2, type: 3}
     - target: {fileID: 3448410617830015574, guid: 0ee31f79a35d84e9ab7db4a57902e541, type: 3}
       propertyPath: m_Name
       value: AssetsInstantiator

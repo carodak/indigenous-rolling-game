@@ -14,10 +14,10 @@ public class NPCTextCreator : MonoBehaviour
         Destroy(NPCTextTransform.gameObject, 20f);
     }
 
-    private TextMeshPro textMeshPro;
+    private TMP_Text textMeshPro;
 
     private void Awake() {
-        textMeshPro = transform.Find("Text").GetComponent<TextMeshPro>();
+        textMeshPro = transform.Find("Text").GetComponent<TMP_Text>();
     }
 
     private void Start() {
@@ -25,5 +25,6 @@ public class NPCTextCreator : MonoBehaviour
 
     private void SetNPCText(string text){
         textMeshPro.SetText(text);
+        TextWriter.AddWriter_Static(textMeshPro, text, .035f, true);
     }
 }
