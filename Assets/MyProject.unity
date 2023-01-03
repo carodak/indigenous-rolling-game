@@ -430,6 +430,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   interactText: Before life, all living creatures resided above the clouds. You must
     climb to the origin of all things.
+  dialogueAudioClip: {fileID: 0}
 --- !u!136 &200998774
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -641,6 +642,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   interactText: You must follow the path or our ancestor. The spirits will guide
     you. Press "space" to jump.
+  dialogueAudioClip: {fileID: 0}
 --- !u!136 &310285048
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -5930,6 +5932,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3146877978625684974, guid: 0ee31f79a35d84e9ab7db4a57902e541, type: 3}
+      propertyPath: playerJump
+      value: 
+      objectReference: {fileID: 8300000, guid: 14461d9802cc6754d9ee507d6b4f9bf2, type: 3}
     - target: {fileID: 3448410617830015574, guid: 0ee31f79a35d84e9ab7db4a57902e541, type: 3}
       propertyPath: m_Name
       value: AssetsInstantiator
@@ -9806,6 +9812,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   interactText: The earth has changed. The earth is suffering, I feel mother nature
     weakened. You must listen to my story. Stories can heal.
+  dialogueAudioClip: {fileID: 8300000, guid: 9f5591bf0410147a3ab3dd80de160b1b, type: 3}
 --- !u!136 &2062048618
 CapsuleCollider:
   m_ObjectHideFlags: 0

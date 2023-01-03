@@ -6,13 +6,14 @@ using TMPro;
 
 public class UIAssistant : MonoBehaviour
 {
-    private TextMeshPro messageText;
+    private TMP_Text messageText;
     
     private void Awake(){
-        messageText = transform.Find("Message").Find("MessageText").GetComponent<TextMeshPro>();
+        messageText = transform.Find("Message").Find("MessageText").GetComponent<TMP_Text>();
+        //Debug.Log("Message Text: ", messageText);
     }
 
     private void Start(){
-        messageText.SetText("Hello World!");
+        TextWriter.AddWriter_Static(messageText, "Hello World! Lorem Ipsum is simply dummy text of the printing. dsldnlsndjlsndj dsdsd dummy text of the printing. dsldnlsndjlsndj dsdsd dummy text of the printing. dsldnlsndjlsndj dsdsd", 0.05f, true);
     }
 }

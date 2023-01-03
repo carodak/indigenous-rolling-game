@@ -12,6 +12,8 @@ public class JumpAbility : MonoBehaviour, IAbility
         if (jumpsLeft <= 0) return;
         playerRB.AddForce(Vector3.up * jumpForce);
         jumpsLeft -= 1;
+        SoundManager.PlaySound(SoundManager.Sound.PlayerJump);
+        
     }
 
     public void resetJumps(){

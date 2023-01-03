@@ -46,6 +46,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   pfNPCText: {fileID: 6599599879801235598, guid: e8384c3c328224375b649d152fcb2acb, type: 3}
+  soundAudioClipArray:
+  - sound: 0
+    audioClip: {fileID: 8300000, guid: eedb3cc5fdde929448410ca4a4823363, type: 3}
+  - sound: 1
+    audioClip: {fileID: 0}
 --- !u!111 &3690960009227211321
 Animation:
   m_ObjectHideFlags: 0
