@@ -13,10 +13,22 @@ public static class SoundManager
     public static void PlaySound(Sound sound){
         GameObject soudGameObject = new GameObject("Sound");
         AudioSource audioSource = soudGameObject.AddComponent<AudioSource>();
-        //audioSource.PlayOneShot(AssetsInstantiator.instance.playerJump);
+        audioSource.PlayOneShot(GetAudioClip(sound));
     }
 
     private static AudioClip GetAudioClip(Sound sound){
-        
+        foreach (AssetsInstantiator.SoundAudioClip soundAudioClip in AssetsInstantiator.instance.soundAudioClipArray){
+            if (soundAudioClip.sound == sound){
+                return soundAudioClip.audioClip;
+            }
+        }
+        Debug.LogError("Sound " + sound + " not found!");
+        return null;
+    }
+    
+    public static void PlayDialog(AudioClip dialogueAudioClip){
+        GameObject soudGameObject = new GameObject("Sound");
+        AudioSource audioSource = soudGameObject.AddComponent<AudioSource>();
+        audioSource.PlayOneShot(dialogueAudioClip);
     }
 }
