@@ -11,7 +11,7 @@ public class NPCInteractable : MonoBehaviour, IInteractable
     public void DistInteract(Transform interactorTransform){
         if (!hasInteracted){
             NPCTextCreator.Create(transform.transform, new Vector3(-.3f, 1.25f, 0f), interactText);
-            SoundManager.PlayDialog(dialogueAudioClip);
+            SoundManager.PlayDialog(dialogueAudioClip, transform.position);
             hasInteracted = true;
         }
     }

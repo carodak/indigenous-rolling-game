@@ -26,6 +26,7 @@ public class DoorMover : MonoBehaviour, IInteractable
         leftDoor.Play("LeftDoorOpen", 0, 0.0f);
         rightDoor.Play("RightDoorOpen", 0, 0.0f);
         openTrigger = false;
+        SoundManager.PlaySound(SoundManager.Sound.DoorOpened, transform.position);
     }
 
     private void CloseDoor()
