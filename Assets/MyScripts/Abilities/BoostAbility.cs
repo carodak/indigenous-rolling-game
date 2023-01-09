@@ -5,20 +5,26 @@ using UnityEngine;
 public class BoostAbility : MonoBehaviour, IAbility
 {
     [SerializeField] private GameObject PlayerGO;
-    [SerializeField] private int boostAmount;
-    private int maxBoost = 1000;
-    private int boostLeft;
+    [SerializeField] private float boostAmount;
+    private float maxBoost = 1f;
+    private float boostLeft = 1f;
 
     public void RefillBoost(){
-        boostLeft = 1000;
+        boostLeft = 1f;
+    }
+
+    public float GetBoostLeft(){
+        return boostLeft;
     }
 
     public void Use(){
+        if (boostLeft <= 0) return;
         //rb.AddForce(Vector3.up * jumpForce);
         //playerRB.AddRelativeForce(Vector3.forward * 1/boostAmount);
         PlayerGO.transform.GetChild(0).GetComponent<Rigidbody>().AddForce(boostAmount * Vector3.up, ForceMode.Impulse);
         //playerGO.GetComponent<Rigidbody>().AddRelativeForce(playerGO.transform.forward * boostAmount, ForceMode.Acceleration);
-        boostLeft -= 1;
+        boostLeft = boostLeft - Time.deltaTime;
+        //Debug.Log("Boost left: " + boostLeft);
         SoundManager.PlaySound(SoundManager.Sound.PlayerBoost, PlayerGO.transform.position);
     }
 }

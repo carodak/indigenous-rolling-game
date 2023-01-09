@@ -12,7 +12,7 @@ public class AbilityRunner : MonoBehaviour
             UseAbility();
         }
 
-        if(Input.GetKeyDown(KeyCode.LeftShift)){
+        if(Input.GetKey(KeyCode.LeftShift)){
             currentAbility = GetComponent<BoostAbility>();
             UseAbility();
         }

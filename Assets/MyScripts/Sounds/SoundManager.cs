@@ -19,6 +19,7 @@ public static class SoundManager
         soudGameObject.transform.position = position;
         AudioSource audioSource = soudGameObject.AddComponent<AudioSource>();
         audioSource.clip = GetAudioClip(sound);
+        if (audioSource.clip == null) return;
         audioSource.maxDistance = 100f;
         audioSource.spatialBlend = 1f;
         audioSource.rolloffMode = AudioRolloffMode.Linear;
@@ -48,6 +49,7 @@ public static class SoundManager
     }
 
     public static void PlayDialog(AudioClip dialogueAudioClip, Vector3 position){
+        if(!dialogueAudioClip) return;
         GameObject soudGameObject = new GameObject("Sound");
         soudGameObject.transform.position = position;
         AudioSource audioSource = soudGameObject.AddComponent<AudioSource>();
@@ -62,6 +64,7 @@ public static class SoundManager
     }
     
     public static void PlayDialog(AudioClip dialogueAudioClip){
+        if(!dialogueAudioClip) return;
         GameObject soudGameObject = new GameObject("Sound");
         AudioSource audioSource = soudGameObject.AddComponent<AudioSource>();
         audioSource.PlayOneShot(dialogueAudioClip);
