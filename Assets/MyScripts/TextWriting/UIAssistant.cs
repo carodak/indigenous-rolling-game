@@ -14,6 +14,6 @@ public class UIAssistant : MonoBehaviour
     }
 
     private void Start(){
-        TextWriter.AddWriter_Static(messageText, "Hello World! Lorem Ipsum is simply dummy text of the printing. dsldnlsndjlsndj dsdsd dummy text of the printing. dsldnlsndjlsndj dsdsd dummy text of the printing. dsldnlsndjlsndj dsdsd", 0.05f, true);
+        TextWriter.AddWriter_Static(messageText, "The great spirit Gitchi Manitou gave our people the Algonquin responsibility to care for the land and water. All things animate or inanimate were created by Gitchi Manitou, therefore we shall always be a part of his spiritual essence. The spirits will grant you access to their power and guide you on your quest to find our identity.", 0.025f, true);
     }
 }
