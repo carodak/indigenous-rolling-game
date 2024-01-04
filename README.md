@@ -24,4 +24,4 @@ Embark on a captivating journey through Aboriginal history in this arcade rollin
 
 ## Learning Journey:
 
-This project is a result of learning from the [Programming Design Patterns course](https://www.udemy.com/course/programming-design-patterns/) on Udemy. Additionally, insights from CodeMonkey's tutorials, such as [this one](https://www.youtube.com/watch?v=LdoImzaY6M4), played a pivotal role in shaping the development process.
+This project serves as a practical application of concepts learned in the [Programming Design Patterns course](https://www.udemy.com/course/programming-design-patterns/) on Udemy. Additionally, insights from CodeMonkey's tutorials, such as [this one](https://www.youtube.com/watch?v=LdoImzaY6M4), played a pivotal role in shaping the development process.
