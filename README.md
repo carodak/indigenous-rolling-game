@@ -6,7 +6,7 @@ Embark on a captivating journey through Indigenous history in this arcade rollin
 
 ### Preview
 
-https://github.com/carodak/indigenous-rolling-game/assets/25282715/66520359-c4f1-4460-8412-a445068613e0
+https://github.com/carodak/indigenous-rolling-game/assets/25282715/42444684-5c62-40a0-a6af-afb41ccc60f3
 
 ## Gameplay Features:
 
