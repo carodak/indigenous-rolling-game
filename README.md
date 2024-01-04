@@ -1,8 +1,8 @@
-# Aboriginal Rolling Game
+# Indigenous Rolling Game
 
 ## Overview:
 
-Embark on a captivating journey through Aboriginal history in this arcade rolling-ball game. Traverse platforms with intricate puzzles that unravel the rich tapestry of Aboriginal narratives. Immerse yourself in an engaging storyline narrated by NPCs.
+Embark on a captivating journey through Indigenous history in this arcade rolling-ball game. Traverse platforms with intricate puzzles that unravel the rich tapestry of Indigenous narratives. Immerse yourself in an engaging storyline narrated by NPCs.
 
 ### Preview
 
@@ -10,7 +10,7 @@ Embark on a captivating journey through Aboriginal history in this arcade rollin
 
     🎮 Unique Abilities: Control the ball's movements with special skills like jumping, boosting, and more.
 
-    🧩 Puzzle Platforms: Navigate through platforms with thought-provoking puzzles that unveil aspects of Aboriginal history.
+    🧩 Puzzle Platforms: Navigate through platforms with thought-provoking puzzles that unveil aspects of Indigenous history.
 
     🗣️ Narrative NPCs: Encounter characters that share a compelling story, providing an immersive experience.
 
